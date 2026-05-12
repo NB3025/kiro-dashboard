@@ -137,26 +137,61 @@ running on a schedule.
 ## 5. Register the Athena tables
 
 The three Parquet-backed tables (`prompt_events`, `tool_events`,
-`sessions`) are **not** created by the CDK stack — only the database
-is. Run the provided DDL once in Athena:
+`sessions`) are **not** created by the CDK stack — only the
+ap-northeast-2 copy of the database is. The ECS task queries Athena in
+`AWS_REGION=us-east-1`, and Glue databases are region-scoped, so the
+DDL file also (re-)creates the database in the query region.
 
 ```bash
-# Replace <INSIGHTS_BUCKET> tokens in the SQL file, then run in Athena.
+# Replace <INSIGHTS_BUCKET> tokens in the SQL file.
 sed "s|<INSIGHTS_BUCKET>|${INSIGHTS_BUCKET_NAME}|g" infra/sql/insights-tables.sql \
   > /tmp/insights-tables.sql
+```
 
-# Open Athena in the AWS console, pick the workgroup whose
-# ATHENA_OUTPUT_BUCKET your dashboard uses, and paste
-# /tmp/insights-tables.sql. Or use the CLI:
-aws athena start-query-execution \
-  --region ${CDK_DEFAULT_REGION} \
-  --query-string "$(cat /tmp/insights-tables.sql)" \
+### 5a. Athena console (recommended)
+
+Open the Athena web console in the **us-east-1** region, pick a
+workgroup whose query results go to `ATHENA_OUTPUT_BUCKET`, paste the
+contents of `/tmp/insights-tables.sql` into the editor, and run. The
+console accepts all four statements in one go.
+
+### 5b. AWS CLI (alternative)
+
+`aws athena start-query-execution` only executes the first statement
+per call. Loop over each statement individually:
+
+```bash
+# 1. create database
+aws athena start-query-execution --region us-east-1 \
+  --query-string "CREATE DATABASE IF NOT EXISTS titanlog_insights" \
   --result-configuration OutputLocation=${ATHENA_OUTPUT_BUCKET}
+
+# 2-4. create each table (requires GNU awk for the RS split below)
+awk '/^CREATE EXTERNAL TABLE/{flag=1} flag{print} /^\);$/{flag=0; print "---SPLIT---"}' \
+  /tmp/insights-tables.sql > /tmp/tables-split.sql
+
+csplit -f /tmp/tbl- -b '%d.sql' -z /tmp/tables-split.sql '/---SPLIT---/' '{*}' 2>/dev/null
+for f in /tmp/tbl-*.sql; do
+  [ -s "$f" ] || continue
+  ddl=$(grep -v '^---SPLIT---' "$f")
+  [ -z "$ddl" ] && continue
+  aws athena start-query-execution --region us-east-1 \
+    --query-string "$ddl" \
+    --result-configuration OutputLocation=${ATHENA_OUTPUT_BUCKET}
+done
 ```
 
 Partition projection is enabled in the DDL, so new daily partitions
 become queryable as soon as the Glue jobs land them — no
 `MSCK REPAIR TABLE` or extra Glue crawler required.
+
+Verify:
+
+```bash
+aws glue get-tables --database-name titanlog_insights --region us-east-1 \
+  --query 'TableList[*].Name'
+# Expected: ["prompt_events", "sessions", "tool_events"]
+```
 
 ---
 

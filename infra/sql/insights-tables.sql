@@ -7,9 +7,23 @@
 -- after the first `prompt_etl` + `session_builder` jobs have written
 -- Parquet to S3.
 --
+-- Cross-region note: the CDK stack deploys to your infra region
+-- (ap-northeast-2 by default) but the ECS task queries Athena in
+-- AWS_REGION (us-east-1). Glue databases are region-scoped, so the
+-- first CREATE DATABASE below is required even though the CDK also
+-- created one in the infra region.
+--
 -- Replace <INSIGHTS_BUCKET> below with the bucket created by the stack,
 -- e.g. `kiro-insights-<account>-<region>`. Partition projection is used
 -- so no `MSCK REPAIR TABLE` is needed after new date partitions land.
+--
+-- How to run:
+--   The Athena **web console** accepts all statements in one paste.
+--   The `aws athena start-query-execution` CLI only runs the first
+--   statement per call — if you prefer CLI, loop over the four
+--   statements below separately (see docs/insights-setup.md step 5).
+
+CREATE DATABASE IF NOT EXISTS titanlog_insights;
 
 CREATE EXTERNAL TABLE IF NOT EXISTS titanlog_insights.prompt_events (
   request_id STRING,

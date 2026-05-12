@@ -108,7 +108,7 @@ export class InsightsStack extends cdk.Stack {
           ].join(','),
           // Glue 3.0 Python Shell ships boto3 <1.28 which predates the
           // bedrock-runtime service client. Upgrade via pip at job start.
-          '--additional-python-modules': 'boto3==1.34.0,scikit-learn==1.3.2',
+          '--additional-python-modules': 'boto3==1.34.0',
         },
         maxCapacity: 1,
       });
