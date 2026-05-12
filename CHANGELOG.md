@@ -13,6 +13,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-12
+
+### Added
+
+- **Insights Pipeline** — CC-faithful 5-stage pipeline (session segmentation → Facet extraction → DataContext assembly → 8-section parallel generation → At a Glance synthesis). See `CLAUDE.md` "Insights Pipeline Workflow" for the full spec.
+- **Spec/day session keying** — `(user_id, SPEC, spec_name)` when `active_spec_name` is present, else `(user_id, DAY, YYYY-MM-DD)`. Spec sessions span multiple days; no time-based timeout.
+- **Facet aggregation** — `buildFacetAggregates()` produces `top_goals / outcomes / satisfaction / friction / success` numeric rollups from per-session Facet JSONs.
+- **DataContext** — new fields `date_range / messages / hours / spec_count / languages`, `top_goals / outcomes / satisfaction / friction / success` (Facet-derived), plus `top_steering_rules / spec_phases` (Kiro-specific).
+- **CC-faithful At a Glance** — synthesis now receives the 8 just-produced core section JSONs (`coreResults`) rather than re-reading raw Facets, mirroring the CC insights pipeline. `maxTokens` raised to 8192 for at_a_glance only.
+- **`fun_ending`** — `{headline, detail}` memorable qualitative moment from transcripts, not a statistic (CC parity).
+- **Labeled At a Glance cards** — 4 cards with headings ("잘 되고 있는 것" / "방해가 되는 것" / "바로 적용해볼 수 있는 것" / "앞으로 시도해볼 워크플로우") replace bare icons.
+- **Insights opt-in infra** — `EcsStackProps.insights` (optional) enables prompt-log IAM + env vars only when the feature is configured. Default deployment keeps the aggregate dashboards unchanged.
+
+### Changed
+
+- **Routing turns filter** — Kiro internal `{chat, do, spec}` router tags (pure JSON responses) dropped at ETL; mixed turns (router + real text) preserved. Detection in `prompt_etl.is_routing_turn`.
+- **Empty-prompt turns** — routed to `tool_events` table, excluded from Facet input.
+- **Facet schema brand alignment** — `claude_helpfulness` → `kiro_helpfulness`, `user_instructions_to_claude` → `user_instructions_to_kiro`.
+- **`primary_success` enum trimmed** — removed `fast_accurate_search / correct_code_edits / multi_file_changes` (require tool-invocation evidence, which Kiro raw logs carry in only ~0.2% of turns). Kept: `none / good_explanations / proactive_help / good_debugging`.
+
+### Removed
+
+- **Org-wide sections** — `org_overview / org_model_routing_audit / org_platform_improvements` along with `/insights` (org dashboard) and `/api/insights/org` routes. `/insights` now serves a simple landing page linking to the user list.
+- **Dead code** — `lib/insights/facet-extractor.ts` (Python `facet_extractor.py` is the canonical path) and its test file.
+- **Sentinel fields** — `hook_active_count / subagent_active_count / power_active_list` removed from `DataContext` (always `'unknown'` in Kiro).
+
+### Fixed
+
+- **React #31 guard** — double defense: prompt-layer `STRICT TYPE REQUIREMENT` directive + UI-layer `renderGlanceField()` coercion. Every at_a_glance value now provably rendered as `string`.
+
 ## [1.1.0] - 2026-04-24
 
 ### Added
@@ -98,6 +128,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+## [1.2.0] - 2026-05-12
+
+### Added
+
+- **Insights 파이프라인** — CC 원본에 충실한 5단계 파이프라인 (세션 구분 → Facet 추출 → DataContext 조립 → 8 섹션 병렬 생성 → At a Glance 합성). 상세: `CLAUDE.md` "Insights Pipeline Workflow".
+- **Spec/Day 세션 키 체계** — `active_spec_name`이 있으면 `(user_id, SPEC, spec_name)`, 없으면 `(user_id, DAY, YYYY-MM-DD)`. spec 세션은 여러 날에 걸침, 시간 타임아웃 없음.
+- **Facet 집계 함수** — `buildFacetAggregates()`가 per-session Facet JSON에서 `top_goals / outcomes / satisfaction / friction / success` 수치 집계 생성.
+- **DataContext 개편** — 신규 필드 `date_range / messages / hours / spec_count / languages`, Facet 집계 5종, Kiro 전용 `top_steering_rules / spec_phases` 추가.
+- **CC 충실 At a Glance** — 합성 단계가 이미 생성된 8개 core 섹션 JSON(`coreResults`)을 입력으로 받음. raw Facet 재해석 방지. maxTokens 8192로 상향.
+- **`fun_ending`** — `{headline, detail}` 통계가 아닌 기억에 남는 질적 순간 (CC parity).
+- **At a Glance 카드 레이블링** — 4개 카드에 제목 추가 ("잘 되고 있는 것" / "방해가 되는 것" / "바로 적용해볼 수 있는 것" / "앞으로 시도해볼 워크플로우").
+- **Insights opt-in 인프라** — `EcsStackProps.insights` (선택 필드)가 설정되어 있을 때만 프롬프트 로그 IAM + 환경변수가 주입됨. 기본 배포는 기존 집계 대시보드 그대로.
+
+### Changed
+
+- **라우팅 턴 필터** — Kiro 내부 `{chat, do, spec}` 라우터 태그(순수 JSON 응답)는 ETL에서 drop. 실제 텍스트가 섞인 mixed 턴은 보존. `prompt_etl.is_routing_turn`.
+- **빈 prompt 턴** — `tool_events` 테이블로 분리, Facet 입력에서 제외.
+- **Facet 스키마 브랜드 정합** — `claude_helpfulness` → `kiro_helpfulness`, `user_instructions_to_claude` → `user_instructions_to_kiro`.
+- **`primary_success` enum 축소** — 도구 기반 값 `fast_accurate_search / correct_code_edits / multi_file_changes` 제거 (Kiro raw에 도구 기록 ~0.2%뿐이라 할루시네이션 유발). 유지: `none / good_explanations / proactive_help / good_debugging`.
+
+### Removed
+
+- **조직 전용 섹션** — `org_overview / org_model_routing_audit / org_platform_improvements` 삭제. `/insights` 페이지와 `/api/insights/org` 라우트 제거. `/insights`는 이제 사용자 목록으로 안내하는 랜딩 페이지.
+- **데드 코드** — `lib/insights/facet-extractor.ts` (정본은 Python `facet_extractor.py`) + 테스트 파일.
+- **센티넬 필드** — `hook_active_count / subagent_active_count / power_active_list`를 DataContext에서 제거 (Kiro에서 항상 `'unknown'` 이었음).
+
+### Fixed
+
+- **React #31 가드** — 이중 방어: 프롬프트 레이어 `STRICT TYPE REQUIREMENT` + UI 레이어 `renderGlanceField()` 문자열 강제. at_a_glance 모든 값이 string으로 보장.
 
 ## [1.1.0] - 2026-04-24
 
