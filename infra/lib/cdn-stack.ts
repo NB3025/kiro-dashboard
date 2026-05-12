@@ -115,15 +115,17 @@ export class CdnStack extends cdk.Stack {
 
     edgeFunction.node.addDependency(ssmConfig);
 
+    const albOrigin = new origins.HttpOrigin(props.alb.loadBalancerDnsName, {
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+      readTimeout: cdk.Duration.seconds(60),
+      customHeaders: {
+        'X-Custom-Secret': props.customSecret,
+      },
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       defaultBehavior: {
-        origin: new origins.HttpOrigin(props.alb.loadBalancerDnsName, {
-          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
-          readTimeout: cdk.Duration.seconds(60),
-          customHeaders: {
-            'X-Custom-Secret': props.customSecret,
-          },
-        }),
+        origin: albOrigin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
@@ -134,6 +136,26 @@ export class CdnStack extends cdk.Stack {
             eventType: cloudfront.LambdaEdgeEventType.VIEWER_REQUEST,
           },
         ],
+      },
+      additionalBehaviors: {
+        // SSE streaming endpoints need per-chunk delivery. CloudFront's
+        // default compress=true buffers the entire response to gzip it —
+        // fatal for `text/event-stream`. Disable compression on /api/* to
+        // let chunks flow through.
+        '/api/*': {
+          origin: albOrigin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+          compress: false,
+          edgeLambdas: [
+            {
+              functionVersion: edgeFunction.currentVersion,
+              eventType: cloudfront.LambdaEdgeEventType.VIEWER_REQUEST,
+            },
+          ],
+        },
       },
       priceClass: cloudfront.PriceClass.PRICE_CLASS_200,
     });

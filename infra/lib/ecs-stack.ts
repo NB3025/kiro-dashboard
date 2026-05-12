@@ -9,10 +9,34 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
+/**
+ * Optional Insights feature configuration. When provided, the ECS task gets
+ * additional S3/Glue IAM permissions and environment variables so the
+ * `/insights/user/<id>` pipeline can reach prompt logs + the insights bucket.
+ * When `undefined` the dashboard still runs, but the Insights section
+ * degrades gracefully (isPromptLogsConfigured() returns false).
+ */
+export interface EcsInsightsConfig {
+  /** Raw Kiro prompt log bucket (e.g. `test-kiro-logging-us-east-1`). */
+  promptLogsBucket: string;
+  /** Prefix within the log bucket down to the per-account KiroLogs tree. */
+  promptLogsPrefix: string;
+  /** Insights data bucket (Parquet + facets + bundles). Typically
+   *  `kiro-insights-<account>-<region>`. */
+  insightsBucket: string;
+  /** Glue database holding prompt_events / sessions / tool_events tables. */
+  athenaDatabase: string;
+}
+
 export interface EcsStackProps extends cdk.StackProps {
   vpc: ec2.IVpc;
   albSg: ec2.SecurityGroup;
   ecsSg: ec2.SecurityGroup;
+  /**
+   * Opt-in: pass this to enable the Insights feature. Omit for the default
+   * maintainer deployment which only runs the aggregate dashboards.
+   */
+  insights?: EcsInsightsConfig;
 }
 
 export class EcsStack extends cdk.Stack {
@@ -46,8 +70,30 @@ export class EcsStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // Maintainer defaults — unchanged when no insights config is provided.
+    // Fork-local overrides flow in through `props.insights`.
     const athenaResultsBucket = 'whchoi01-titan-q-log';
     const athenaResultsPrefix = 'athena-results';
+    const athenaDatabase = props.insights?.athenaDatabase ?? 'titanlog';
+
+    const s3ReadResources = [
+      `arn:aws:s3:::${athenaResultsBucket}`,
+      `arn:aws:s3:::${athenaResultsBucket}/*`,
+    ];
+    const s3WriteResources = [
+      `arn:aws:s3:::${athenaResultsBucket}/${athenaResultsPrefix}/*`,
+    ];
+    if (props.insights) {
+      s3ReadResources.push(
+        `arn:aws:s3:::${props.insights.promptLogsBucket}`,
+        `arn:aws:s3:::${props.insights.promptLogsBucket}/*`,
+        `arn:aws:s3:::${props.insights.insightsBucket}`,
+        `arn:aws:s3:::${props.insights.insightsBucket}/*`,
+      );
+      s3WriteResources.push(
+        `arn:aws:s3:::${props.insights.insightsBucket}/insights/*`,
+      );
+    }
 
     const taskRole = new iam.Role(this, 'TaskRole', {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -70,16 +116,11 @@ export class EcsStack extends cdk.Stack {
           statements: [
             new iam.PolicyStatement({
               actions: ['s3:GetObject', 's3:ListBucket', 's3:GetBucketLocation'],
-              resources: [
-                `arn:aws:s3:::${athenaResultsBucket}`,
-                `arn:aws:s3:::${athenaResultsBucket}/*`,
-              ],
+              resources: s3ReadResources,
             }),
             new iam.PolicyStatement({
               actions: ['s3:PutObject', 's3:GetObject'],
-              resources: [
-                `arn:aws:s3:::${athenaResultsBucket}/${athenaResultsPrefix}/*`,
-              ],
+              resources: s3WriteResources,
             }),
           ],
         }),
@@ -90,12 +131,13 @@ export class EcsStack extends cdk.Stack {
                 'glue:GetTable',
                 'glue:GetTables',
                 'glue:GetDatabase',
+                'glue:GetDatabases',
                 'glue:GetPartitions',
               ],
               resources: [
                 `arn:aws:glue:*:${this.account}:catalog`,
-                `arn:aws:glue:*:${this.account}:database/titanlog`,
-                `arn:aws:glue:*:${this.account}:table/titanlog/*`,
+                `arn:aws:glue:*:${this.account}:database/${athenaDatabase}`,
+                `arn:aws:glue:*:${this.account}:table/${athenaDatabase}/*`,
               ],
             }),
           ],
@@ -143,19 +185,35 @@ export class EcsStack extends cdk.Stack {
       },
     });
 
+    const baseEnv: Record<string, string> = {
+      HOSTNAME: '0.0.0.0',
+      AWS_REGION: 'us-east-1',
+      ATHENA_DATABASE: athenaDatabase,
+      ATHENA_OUTPUT_BUCKET: `s3://${athenaResultsBucket}/${athenaResultsPrefix}/`,
+      GLUE_TABLE_NAME: 'user_report',
+      IDENTITY_STORE_ID: 'd-90663be888',
+      S3_REPORT_PREFIX: 'q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/',
+      NEXTAUTH_URL: '',
+    };
+
+    // Insights-specific env vars only emitted when the feature is opted in.
+    // When absent, `isPromptLogsConfigured()` in the app returns false and
+    // /insights/* routes respond with not_configured envelopes.
+    if (props.insights) {
+      baseEnv.PROMPT_LOGS_BUCKET = props.insights.promptLogsBucket;
+      baseEnv.PROMPT_LOGS_PREFIX = props.insights.promptLogsPrefix;
+      baseEnv.INSIGHTS_BUCKET = props.insights.insightsBucket;
+      // Insights bucket lives in this stack's region, different from
+      // AWS_REGION=us-east-1 used for Bedrock/Athena/IdC.
+      baseEnv.INSIGHTS_BUCKET_REGION = this.region;
+      baseEnv.INSIGHTS_MODEL_ID = 'global.anthropic.claude-opus-4-7';
+      baseEnv.FACET_MODEL_ID = 'global.anthropic.claude-opus-4-7';
+    }
+
     taskDef.addContainer('AppContainer', {
       image: ecs.ContainerImage.fromEcrRepository(repository, 'latest'),
       portMappings: [{ containerPort: 3000 }],
-      environment: {
-        HOSTNAME: '0.0.0.0',
-        AWS_REGION: 'us-east-1',
-        ATHENA_DATABASE: 'titanlog',
-        ATHENA_OUTPUT_BUCKET: 's3://whchoi01-titan-q-log/athena-results/',
-        GLUE_TABLE_NAME: 'user_report',
-        IDENTITY_STORE_ID: 'd-90663be888',
-        S3_REPORT_PREFIX: 'q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/',
-        NEXTAUTH_URL: '',
-      },
+      environment: baseEnv,
       secrets: {
         NEXTAUTH_SECRET: ecs.Secret.fromSecretsManager(nextAuthSecret),
       },
