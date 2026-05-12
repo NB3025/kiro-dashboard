@@ -1,0 +1,337 @@
+{
+  "_meta": {
+    "purpose": "TDD fixture for Kiro Insights — covers all parser/ETL/clustering scenarios",
+    "based_on": "CC reference + Kiro GenerateAssistantResponse log schema (5,214 events analysis)",
+    "anonymization": "All userId UUIDs are synthetic; displayNames and content are invented; no real user data",
+    "version": "1.0.0",
+    "generated_at": "2026-05-03",
+    "record_count": 18,
+    "scenarios_covered": [
+      "S1: normal IDE + Sonnet",
+      "S2: empty prompt (tool-result turn)",
+      "S3: single <user-rule>",
+      "S4: multiple <user-rule>",
+      "S5: <ACTIVE-EDITOR-FILE>",
+      "S6: <EnvironmentContext> with workspace",
+      "S7: CLI wrapper markers",
+      "S8: .kiro/specs/*/requirements.md",
+      "S9: .kiro/specs/*/design.md",
+      "S10: .kiro/specs/*/tasks.md",
+      "S11: modelId auto routing",
+      "S12: modelId simple-task",
+      "S13: session split (>30min gap)",
+      "S14: same user <30min (merged session)",
+      "S15: different users concurrent",
+      "S16: meta-session (internal tooling)",
+      "S17: repeated question pattern (clustering)"
+    ]
+  },
+  "records": [
+    {
+      "_scenario": "S1: normal IDE + Sonnet",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "Can you explain how the current authentication flow works in this codebase?",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0001-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T09:15:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s1-0001",
+        "assistantResponse": "The authentication flow uses Lambda@Edge for JWT validation before requests reach the ALB...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S2: empty prompt — tool-result turn (should go to tool_events)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0001-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T09:15:42Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s2-0002",
+        "assistantResponse": "I've read the auth middleware. Next, let me check the Lambda@Edge function...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S3: single <user-rule>",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "<user-rule id=\"use-uv\">Always use uv, never pip</user-rule>\n\nPlease add pytest to the project dev dependencies.",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0002-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T10:00:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s3-0003",
+        "assistantResponse": "I'll use `uv add --dev pytest` per your rule.",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S4: multiple <user-rule>",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "<user-rule id=\"use-uv\">Always use uv, never pip</user-rule>\n<user-rule id=\"conventions\">Follow PEP 8 and use type hints</user-rule>\n<user-rule id=\"self-review\">After each change, re-read the diff before declaring done</user-rule>\n\nRefactor the database connection pool to use asyncpg.",
+        "modelId": "claude-opus-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0002-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T10:05:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s4-0004",
+        "assistantResponse": "I'll apply all three rules. Starting with the refactor...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S5: <ACTIVE-EDITOR-FILE>",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "<ACTIVE-EDITOR-FILE path=\"src/auth/middleware.ts\"></ACTIVE-EDITOR-FILE>\n\nAdd rate limiting to this middleware.",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0003-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T11:20:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s5-0005",
+        "assistantResponse": "I'll add a token bucket rate limiter to src/auth/middleware.ts.",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S6: <EnvironmentContext> with workspace path",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "<EnvironmentContext><workspace>/Users/alice/projects/hello-kiro-dashboard</workspace><OPEN-EDITOR-FILES>app/page.tsx, lib/athena.ts</OPEN-EDITOR-FILES></EnvironmentContext>\n\nWhere does the dashboard read Athena results from?",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0003-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T11:25:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s6-0006",
+        "assistantResponse": "Looking at lib/athena.ts — the ATHENA_OUTPUT_BUCKET env var configures this...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S7: CLI wrapper — USER MESSAGE BEGIN marker",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "--- USER MESSAGE BEGIN ---\nfix the lint errors in src/ folder\n--- USER MESSAGE END ---",
+        "modelId": "auto",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0004-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T14:00:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s7-0007",
+        "assistantResponse": "Running eslint and fixing auto-fixable issues...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S8: .kiro/specs/*/requirements.md (Spec requirements phase)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "<ACTIVE-EDITOR-FILE path=\".kiro/specs/payment-api/requirements.md\"></ACTIVE-EDITOR-FILE>\n\nHelp me write the acceptance criteria for the refund endpoint.",
+        "modelId": "claude-opus-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0005-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T15:30:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s8-0008",
+        "assistantResponse": "Here are the acceptance criteria for the refund endpoint...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S9: .kiro/specs/*/design.md (Spec design phase)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "<ACTIVE-EDITOR-FILE path=\".kiro/specs/payment-api/design.md\"></ACTIVE-EDITOR-FILE>\n\nWhat's the best way to structure the webhook retry logic?",
+        "modelId": "claude-opus-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0005-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T15:45:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s9-0009",
+        "assistantResponse": "Use exponential backoff with jitter. The design should include a dead-letter queue for failed retries after N attempts.",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S10: .kiro/specs/*/tasks.md (Spec tasks phase)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "<ACTIVE-EDITOR-FILE path=\".kiro/specs/payment-api/tasks.md\"></ACTIVE-EDITOR-FILE>\n\nBreak down the webhook handler implementation into 1-hour tasks.",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0005-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T16:00:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s10-0010",
+        "assistantResponse": "Here's the task breakdown with rough estimates...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S11: modelId = auto (routing mode)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "--- USER MESSAGE BEGIN ---\nwhat does the function in line 42 do?\n--- USER MESSAGE END ---",
+        "modelId": "auto",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0004-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T14:05:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s11-0011",
+        "assistantResponse": "Line 42 is a getter that returns the masked username...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S12: modelId = simple-task (routing mode)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "rename this variable from `userData` to `user`",
+        "modelId": "simple-task",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0003-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T11:30:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s12-0012",
+        "assistantResponse": "Renamed. Here's the diff:\n- const userData = ...\n+ const user = ...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S13: session split (>30min gap from S1/S2 — same user, new session)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "Now let's look at the database migration scripts.",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0001-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T10:30:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s13-0013",
+        "assistantResponse": "The migrations are in db/migrations/...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S14: same user <30min (should merge with S1/S2)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "Follow up: can you show me the JWT verification code?",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0001-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T09:25:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s14-0014",
+        "assistantResponse": "Here's the jwtVerify function in lib/auth.ts...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S15: different user, concurrent timestamp (should NOT merge)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "Add error handling to the upload endpoint.",
+        "modelId": "claude-opus-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0006-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T09:18:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s15-0015",
+        "assistantResponse": "Adding try/catch around the multipart parser with specific error codes...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S16: meta-session — internal tooling (should be filtered by FR-FACET-6)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "Analyze this Kiro IDE/CLI session and extract structured facets. RESPOND WITH ONLY A VALID JSON OBJECT matching this schema: { ... }",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0007-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T03:00:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s16-0016",
+        "assistantResponse": "{\"underlying_goal\": \"...\", \"outcome\": \"unclear_from_transcript\"}",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S17a: repeated question pattern — pytest fixture (cluster candidate)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "How do I share a pytest fixture across multiple test files?",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0008-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T13:00:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s17a-0017",
+        "assistantResponse": "Put the fixture in a conftest.py at the shared scope level...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    },
+    {
+      "_scenario": "S17b: repeated question pattern — pytest fixture again (different user, same topic, cluster signal)",
+      "generateAssistantResponseEventRequest": {
+        "prompt": "What's the right way to reuse a pytest fixture in multiple directories?",
+        "modelId": "claude-sonnet-4.6",
+        "chatTriggerType": "MANUAL",
+        "userId": "d-906638cb75.a1b2c3d4-0009-70b8-190b-9abf0a56c2e4",
+        "timeStamp": "2026-04-29T16:30:00Z"
+      },
+      "generateAssistantResponseEventResponse": {
+        "requestId": "req-s17b-0018",
+        "assistantResponse": "Place the fixture in conftest.py at the closest common parent directory...",
+        "codeReferenceEvents": [],
+        "messageMetadata": null,
+        "supplementaryWebLinksEvent": null
+      }
+    }
+  ]
+}

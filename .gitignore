@@ -5,6 +5,17 @@ infra/node_modules/
 infra/cdk.out/
 cdk.context.json
 
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Python virtual environments + caches (infra/glue-jobs)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Environment files (secrets)
 .env
 .env.local
