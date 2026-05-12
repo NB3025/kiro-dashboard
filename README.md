@@ -58,6 +58,7 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **Lambda@Edge Authentication** — CDN-level Cognito PKCE authentication via Lambda@Edge; no auth logic in the app
 - **Data Masking** — Server-side masking of all user identifiers (names, emails, organizations) showing only first 2 characters
 - **Model Usage Analysis** — Per-model message distribution (Auto, Claude Opus, Claude Sonnet), daily trends, Auto vs manual selection ratio, and user model preference table via S3 direct CSV parsing
+- **Per-User Insights (opt-in)** — `/insights/user/<userId>` drills into a single user's Kiro activity: spec/day session segmentation, per-session Facet extraction (Bedrock Opus 4.7), 8 parallel Claude-Code-style insight sections + At a Glance synthesis. Activated by setting `PROMPT_LOGS_BUCKET_NAME` at deploy time; see [`docs/insights-setup.md`](docs/insights-setup.md).
 
 ## Prerequisites
 
@@ -264,6 +265,7 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **Lambda@Edge 인증** — CDN 레벨 Cognito PKCE 인증 (Lambda@Edge), 앱 내 인증 로직 없음
 - **데이터 마스킹** — 모든 사용자 식별자(이름, 이메일, 소속)를 서버 측에서 마스킹하여 첫 2글자만 표시
 - **모델 사용 분석** — 모델별 메시지 분포(Auto, Claude Opus, Claude Sonnet), 일별 트렌드, Auto vs 수동 선택 비율, 사용자별 모델 선호도 테이블 (S3 CSV 직접 파싱)
+- **사용자별 Insights (opt-in)** — `/insights/user/<userId>`에서 단일 사용자의 Kiro 활동을 드릴다운: spec/day 세션 구분, 세션당 Facet 추출(Bedrock Opus 4.7), 8개 병렬 Claude Code 스타일 섹션 + At a Glance 합성. 배포 시 `PROMPT_LOGS_BUCKET_NAME` 설정으로 활성화. 셋업 절차는 [`docs/insights-setup.md`](docs/insights-setup.md) 참고.
 
 ## 사전 요구 사항
 
